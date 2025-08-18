@@ -8,6 +8,10 @@ CLI workout tracker for people who prefer pen and paper in the gym but want data
 python fitlog.py
 ```
 
+## Important Notes
+
+Exercise names must be consistent for proper analysis. The app treats "barbell curls", "bb curls", and "bb curl" as three different exercises. Use the same naming convention each time you log an exercise.
+
 ## Features
 
 - Main navigation menu
