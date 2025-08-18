@@ -2,6 +2,7 @@
 
 import sqlite3
 import os
+import re
 from datetime import datetime
 
 class FitLog:
@@ -123,8 +124,9 @@ class FitLog:
                 break
             
             unit = 'kg' if 'kg' in exercise_name.lower() else 'lbs'
+            clean_name = re.sub(r'[^a-zA-Z0-9\s\-]', '', exercise_name).lower().strip()
             cursor.execute('INSERT INTO exercises (workout_id, name, unit) VALUES (?, ?, ?)', 
-                         (workout_id, exercise_name, unit))
+                         (workout_id, clean_name, unit))
             exercise_id = cursor.lastrowid
             
             set_number = 1
