@@ -46,6 +46,24 @@ class FitLog:
         conn.commit()
         conn.close()
     
+    def get_existing_exercises(self):
+        """
+        Retrieve all unique exercise names from the database for autocomplete.
+        Returns a list of exercise names sorted alphabetically.
+        """
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute('SELECT DISTINCT name FROM exercises ORDER BY name')
+            exercises = [row[0] for row in cursor.fetchall()]
+            return exercises
+        except sqlite3.Error as e:
+            print(f"Database error retrieving exercises: {e}")
+            return []
+        finally:
+            conn.close()
+    
     def clear_screen(self):
         os.system('cls' if os.name == 'nt' else 'clear')
     
