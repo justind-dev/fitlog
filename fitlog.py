@@ -226,16 +226,80 @@ class FitLog:
         except KeyboardInterrupt:
             return "CANCELLED"  # Special return value to indicate cancellation
 
-    def log_workout(self):
-        try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
+    def display_workout_confirmation(self, workout_data):
+        """
+        Display workout confirmation table and get user approval.
+        Returns True if confirmed, False if cancelled.
+        """
+        print("\n" + "=" * 50)
+        print("         WORKOUT CONFIRMATION")
+        print("=" * 50)
+        
+        for exercise_data in workout_data:
+            exercise_name = exercise_data['name']
+            unit = exercise_data['unit']
+            sets = exercise_data['sets']
+            is_new = exercise_data['is_new']
             
+            # Display exercise header
+            new_indicator = " (new)" if is_new else ""
+            print(f"\n{exercise_name.title()} ({unit}){new_indicator}")
+            print("-" * (len(exercise_name) + len(unit) + len(new_indicator) + 3))
+            
+            # Display sets
+            for i, (weight, reps) in enumerate(sets, 1):
+                if unit in ['minutes', 'seconds', 'hours', 'miles', 'km'] or unit == 'reps':
+                    print(f"  Set {i}: {weight} {unit}")
+                else:
+                    print(f"  Set {i}: {weight} {unit} x {reps}")
+        
+        print("\n" + "=" * 50)
+        
+        try:
+            confirm = input("Confirm and save workout? (y/n): ").strip().lower()
+            return confirm == 'y'
+        except KeyboardInterrupt:
+            print("\nWorkout cancelled.")
+            return False
+
+    def save_workout_to_db(self, workout_data):
+        """
+        Save the workout data to database in a single transaction.
+        """
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        try:
+            # Create workout record
             workout_date = datetime.now().isoformat()
             cursor.execute('INSERT INTO workouts (date) VALUES (?)', (workout_date,))
             workout_id = cursor.lastrowid
             
-            # Get existing exercises for autocomplete
+            # Save exercises and sets
+            for exercise_data in workout_data:
+                # Create exercise record
+                cursor.execute('INSERT INTO exercises (workout_id, name, unit) VALUES (?, ?, ?)', 
+                             (workout_id, exercise_data['name'], exercise_data['unit']))
+                exercise_id = cursor.lastrowid
+                
+                # Create set records
+                for set_order, (weight, reps) in enumerate(exercise_data['sets'], 1):
+                    cursor.execute('INSERT INTO sets (exercise_id, weight, reps, set_order) VALUES (?, ?, ?, ?)',
+                                 (exercise_id, weight, reps, set_order))
+            
+            conn.commit()
+            return True
+            
+        except sqlite3.Error as e:
+            print(f"Error saving workout: {e}")
+            conn.rollback()
+            return False
+        finally:
+            conn.close()
+
+    def log_workout(self):
+        try:
+            # Get existing exercises for autocomplete and new exercise detection
             existing_exercises = self.get_existing_exercises()
             
             self.clear_screen()
@@ -243,6 +307,8 @@ class FitLog:
             print("         LOG WORKOUT")
             print("=" * 40)
             print()
+            
+            workout_data = []  # Store all workout data in memory
             
             while True:
                 exercise_name = self.get_exercise_input(existing_exercises)
@@ -258,20 +324,17 @@ class FitLog:
                 existing_unit = self.get_exercise_with_unit(clean_name)
                 if existing_unit:
                     unit = existing_unit
+                    is_new_exercise = False
                     print(f"Using existing exercise: {clean_name} ({unit})")
                 else:
                     unit = self.get_exercise_unit()
                     if unit is None:  # Cancelled via Ctrl+C
                         continue  # Back to exercise name input
+                    is_new_exercise = True
                     print(f"New exercise: {clean_name} ({unit})")
-                
-                cursor.execute('INSERT INTO exercises (workout_id, name, unit) VALUES (?, ?, ?)', 
-                             (workout_id, clean_name, unit))
-                exercise_id = cursor.lastrowid
-                
-                # Refresh exercise list if we added a new exercise
-                if clean_name not in existing_exercises:
-                    existing_exercises = self.get_existing_exercises()
+                    # Add to existing exercises list for future autocomplete in this session
+                    existing_exercises.append(clean_name)
+                    existing_exercises.sort()
                 
                 # Set input loop with cancellation handling
                 sets_entered = []
@@ -302,8 +365,6 @@ class FitLog:
                     else:
                         # Valid set entered
                         weight, reps = set_result
-                        cursor.execute('INSERT INTO sets (exercise_id, weight, reps, set_order) VALUES (?, ?, ?, ?)',
-                                     (exercise_id, weight, reps, set_number))
                         sets_entered.append((weight, reps))
                         
                         # Show confirmation based on unit type
@@ -314,12 +375,32 @@ class FitLog:
                         
                         set_number += 1
                 
+                # If sets were entered, add exercise to workout data
+                if sets_entered:
+                    workout_data.append({
+                        'name': clean_name,
+                        'unit': unit,
+                        'sets': sets_entered,
+                        'is_new': is_new_exercise
+                    })
+                
                 print()  # Blank line between exercises
             
-            conn.commit()
-            conn.close()
+            # If no exercises were logged, just return
+            if not workout_data:
+                print("No exercises logged.")
+                input("Press Enter to continue...")
+                return
             
-            print("Workout logged successfully!")
+            # Display confirmation table and save if approved
+            if self.display_workout_confirmation(workout_data):
+                if self.save_workout_to_db(workout_data):
+                    print("\nWorkout logged successfully!")
+                else:
+                    print("\nError saving workout. Please try again.")
+            else:
+                print("\nWorkout cancelled.")
+            
             input("Press Enter to continue...")
             
         except KeyboardInterrupt:
