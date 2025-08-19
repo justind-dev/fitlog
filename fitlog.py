@@ -121,6 +121,24 @@ class FitLog:
             else:
                 input("Invalid option. Press Enter to continue...")
     
+    def get_exercise_input(self, existing_exercises):
+        """
+        Get exercise name input with autocomplete fallback to basic input.
+        """
+        try:
+            from prompt_toolkit import prompt
+            from prompt_toolkit.completion import WordCompleter
+            
+            exercise_completer = WordCompleter(existing_exercises, ignore_case=True)
+            exercise_name = prompt("Exercise Name (or empty to quit logging): ", 
+                                 completer=exercise_completer).strip()
+            return exercise_name
+        except ImportError:
+            # Fallback to basic input if prompt-toolkit not available
+            return input("Exercise Name (or empty to quit logging): ").strip()
+        except KeyboardInterrupt:
+            return ""
+
     def log_workout(self):
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
@@ -129,6 +147,9 @@ class FitLog:
         cursor.execute('INSERT INTO workouts (date) VALUES (?)', (workout_date,))
         workout_id = cursor.lastrowid
         
+        # Get existing exercises for autocomplete
+        existing_exercises = self.get_existing_exercises()
+        
         self.clear_screen()
         print("=" * 40)
         print("         LOG WORKOUT")
@@ -136,7 +157,7 @@ class FitLog:
         print()
         
         while True:
-            exercise_name = input("Exercise Name (or empty to quit logging): ").strip()
+            exercise_name = self.get_exercise_input(existing_exercises)
             
             if not exercise_name:
                 break
