@@ -203,8 +203,17 @@ class FitLog:
             if not exercise_name:
                 break
             
-            unit = 'kg' if 'kg' in exercise_name.lower() else 'lbs'
             clean_name = re.sub(r'[^a-zA-Z0-9\s\-]', '', exercise_name).lower().strip()
+            
+            # Check if exercise exists and get its unit, or prompt for new unit
+            existing_unit = self.get_exercise_with_unit(clean_name)
+            if existing_unit:
+                unit = existing_unit
+                print(f"Using existing exercise: {clean_name} ({unit})")
+            else:
+                unit = self.get_exercise_unit()
+                print(f"New exercise: {clean_name} ({unit})")
+            
             cursor.execute('INSERT INTO exercises (workout_id, name, unit) VALUES (?, ?, ?)', 
                          (workout_id, clean_name, unit))
             exercise_id = cursor.lastrowid
@@ -215,25 +224,43 @@ class FitLog:
             
             set_number = 1
             while True:
-                set_input = input(f"Set Weight and Reps (Weight Reps) or empty for none: ").strip()
+                # Customize prompt based on unit type
+                if unit in ['minutes', 'seconds', 'hours']:
+                    set_input = input(f"Set Duration (e.g., '30' for 30 {unit}) or empty for none: ").strip()
+                elif unit == 'reps':
+                    set_input = input(f"Set Reps (e.g., '15') or empty for none: ").strip()
+                else:
+                    set_input = input(f"Set Weight and Reps (Weight Reps) or empty for none: ").strip()
                 
                 if not set_input:
                     break
                 
                 try:
-                    parts = set_input.split()
-                    if len(parts) == 2:
-                        weight = float(parts[0])
-                        reps = int(parts[1])
-                        
+                    if unit in ['minutes', 'seconds', 'hours'] or unit == 'reps':
+                        # For time-based or bodyweight exercises, only one value needed
+                        value = float(set_input)
                         cursor.execute('INSERT INTO sets (exercise_id, weight, reps, set_order) VALUES (?, ?, ?, ?)',
-                                     (exercise_id, weight, reps, set_number))
+                                     (exercise_id, value, 1, set_number))
                         set_number += 1
-                        print(f"  ✓ Set {set_number-1}: {weight} {unit} x {reps}")
+                        print(f"  ✓ Set {set_number-1}: {value} {unit}")
+                    else:
+                        # For weight-based exercises, need weight and reps
+                        parts = set_input.split()
+                        if len(parts) == 2:
+                            weight = float(parts[0])
+                            reps = int(parts[1])
+                            
+                            cursor.execute('INSERT INTO sets (exercise_id, weight, reps, set_order) VALUES (?, ?, ?, ?)',
+                                         (exercise_id, weight, reps, set_number))
+                            set_number += 1
+                            print(f"  ✓ Set {set_number-1}: {weight} {unit} x {reps}")
+                        else:
+                            print("  Invalid format. Use: Weight Reps")
+                except ValueError:
+                    if unit in ['minutes', 'seconds', 'hours'] or unit == 'reps':
+                        print(f"  Invalid format. Enter a number for {unit}")
                     else:
                         print("  Invalid format. Use: Weight Reps")
-                except ValueError:
-                    print("  Invalid format. Use: Weight Reps")
             
             print()
         
