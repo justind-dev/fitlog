@@ -5,6 +5,9 @@ import os
 import re
 from datetime import datetime
 
+# Available units for exercises
+EXERCISE_UNITS = ['lbs', 'kg', 'minutes', 'reps', 'miles', 'km', 'seconds', 'hours']
+
 class FitLog:
     def __init__(self):
         self.db_path = 'fitlog.db'
@@ -81,6 +84,26 @@ class FitLog:
             return None
         finally:
             conn.close()
+    
+    def get_exercise_unit(self):
+        """
+        Get unit input with autocomplete from predefined units.
+        Returns the selected unit string.
+        """
+        try:
+            from prompt_toolkit import prompt
+            from prompt_toolkit.completion import WordCompleter
+            
+            unit_completer = WordCompleter(EXERCISE_UNITS, ignore_case=True)
+            unit = prompt("Unit for this exercise: ", completer=unit_completer).strip()
+            return unit if unit else 'reps'  # Default to 'reps' if empty
+        except ImportError:
+            # Fallback to basic input if prompt-toolkit not available
+            print(f"Available units: {', '.join(EXERCISE_UNITS)}")
+            unit = input("Unit for this exercise: ").strip()
+            return unit if unit else 'reps'
+        except KeyboardInterrupt:
+            return 'reps'
     
     def clear_screen(self):
         os.system('cls' if os.name == 'nt' else 'clear')
