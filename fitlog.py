@@ -168,6 +168,10 @@ class FitLog:
                          (workout_id, clean_name, unit))
             exercise_id = cursor.lastrowid
             
+            # Refresh exercise list if we added a new exercise
+            if clean_name not in existing_exercises:
+                existing_exercises = self.get_existing_exercises()
+            
             set_number = 1
             while True:
                 set_input = input(f"Set Weight and Reps (Weight Reps) or empty for none: ").strip()
