@@ -225,8 +225,11 @@ class FitLog:
             set_number = 1
             while True:
                 # Customize prompt based on unit type
-                if unit in ['minutes', 'seconds', 'hours']:
-                    set_input = input(f"Set Duration (e.g., '30' for 30 {unit}) or empty for none: ").strip()
+                if unit in ['minutes', 'seconds', 'hours', 'miles', 'km']:
+                    if unit in ['miles', 'km']:
+                        set_input = input(f"Set Distance (e.g., '3.5' for 3.5 {unit}) or empty for none: ").strip()
+                    else:
+                        set_input = input(f"Set Duration (e.g., '30' for 30 {unit}) or empty for none: ").strip()
                 elif unit == 'reps':
                     set_input = input(f"Set Reps (e.g., '15') or empty for none: ").strip()
                 else:
@@ -236,8 +239,8 @@ class FitLog:
                     break
                 
                 try:
-                    if unit in ['minutes', 'seconds', 'hours'] or unit == 'reps':
-                        # For time-based or bodyweight exercises, only one value needed
+                    if unit in ['minutes', 'seconds', 'hours', 'miles', 'km'] or unit == 'reps':
+                        # For time-based, distance-based, or bodyweight exercises, only one value needed
                         value = float(set_input)
                         cursor.execute('INSERT INTO sets (exercise_id, weight, reps, set_order) VALUES (?, ?, ?, ?)',
                                      (exercise_id, value, 1, set_number))
@@ -257,7 +260,7 @@ class FitLog:
                         else:
                             print("  Invalid format. Use: Weight Reps")
                 except ValueError:
-                    if unit in ['minutes', 'seconds', 'hours'] or unit == 'reps':
+                    if unit in ['minutes', 'seconds', 'hours', 'miles', 'km'] or unit == 'reps':
                         print(f"  Invalid format. Enter a number for {unit}")
                     else:
                         print("  Invalid format. Use: Weight Reps")
