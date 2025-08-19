@@ -64,6 +64,24 @@ class FitLog:
         finally:
             conn.close()
     
+    def get_exercise_with_unit(self, exercise_name):
+        """
+        Retrieve exercise unit from database if exercise exists.
+        Returns the unit if found, None if exercise doesn't exist.
+        """
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute('SELECT unit FROM exercises WHERE name = ? LIMIT 1', (exercise_name,))
+            result = cursor.fetchone()
+            return result[0] if result else None
+        except sqlite3.Error as e:
+            print(f"Database error retrieving exercise unit: {e}")
+            return None
+        finally:
+            conn.close()
+    
     def clear_screen(self):
         os.system('cls' if os.name == 'nt' else 'clear')
     
